@@ -1,0 +1,30 @@
+# Application and Model Configuration
+model:
+  weights_path: "weights/best.pt"
+  fallback_weights: "yolo11n.pt"
+  default_conf_threshold: 0.25
+  iou_threshold: 0.45
+  image_size: 640
+
+dataset:
+  raw_dir: "data/raw/NEU-DET"
+  processed_dir: "data/processed/NEU-DET"
+  seed: 42
+  split_ratios:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+  classes:
+    - crazing
+    - inclusion
+    - patches
+    - pitted_surface
+    - rolled-in_scale
+    - scratches
+
+llm:
+  # Hugging Face Inference API model identifier (read-only config, token comes from HF_TOKEN env var)
+  model_id: "Qwen/Qwen2.5-7B-Instruct"
+  max_new_tokens: 450
+  temperature: 0.2
+  timeout_seconds: 20

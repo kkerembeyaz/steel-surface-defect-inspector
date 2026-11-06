@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Datasets and raw data
+data/
+datasets/
+*.zip
+*.tar.gz
+*.rar
+
+# Ultralytics YOLO training outputs and temporary weights
+runs/
+wandb/
+*.pt
+!weights/best.pt
+
+# Environment variables and secrets (NEVER commit API keys)
+.env
+.env.*
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Pytest and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Gradio temporary files
+.gradio/
+flagged/

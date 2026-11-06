@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: steel-defect-inspector
+    runtime: python
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GRADIO_ANALYTICS_ENABLED
+        value: "False"
+      - key: YOLO_CONFIG_DIR
+        value: /tmp/Ultralytics
