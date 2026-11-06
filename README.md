@@ -1,11 +1,11 @@
 # Steel Surface Defect Inspector
 
-[![Canlı Demo](https://img.shields.io/badge/DEMO-CANLI%20UYGULAMAYI%20A%C3%87-44cc11?style=for-the-badge&logo=render&logoColor=white)](https://steel-defect-inspector.onrender.com)
+[![Canlı Demo](https://img.shields.io/badge/DEMO-CANLI%20UYGULAMAYI%20A%C3%87-44cc11?style=for-the-badge&logo=render&logoColor=white)](https://steel-surface-defect-inspector.onrender.com)
 ![YOLOv11](https://img.shields.io/badge/YOLOv11-1E3A8A?style=for-the-badge&logo=ultralytics&logoColor=white)
 ![Gradio](https://img.shields.io/badge/GRADIO-00758F?style=for-the-badge&logo=gradio&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PYTORCH-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 
-> 🚀 **Canlı Uygulama:** Modeli tarayıcınız üzerinden hemen denemek için **[steel-defect-inspector.onrender.com](https://steel-defect-inspector.onrender.com)** adresini ziyaret edebilirsiniz.
+> 🚀 **Canlı Uygulama:** Modeli tarayıcınız üzerinden hemen denemek için **[steel-surface-defect-inspector.onrender.com](https://steel-surface-defect-inspector.onrender.com)** adresini ziyaret edebilirsiniz.
 
 **NEU-DET** çelik yüzey kusuru veri seti üzerine kurulmuş, **PyTorch / Ultralytics YOLOv11** ile eğitilmiş bir **nesne tespiti (object detection)** modeli ve bu modeli **LLM / Kural Tabanlı Kalite Raporlama** ile servis eden bir **web uygulaması**. Proje, çelik sac yüzey görüntülerine bakarak yüzeyde kusur olup olmadığını, varsa hangi türden (`crazing`, `inclusion`, `patches`, `pitted_surface`, `rolled-in_scale`, `scratches`) ve hangi bölgede olduğunu tespit edip mühendislik kalite kontrol raporuna dönüştürüyor.
 
@@ -192,7 +192,7 @@ Proje, Render'ın ücretsiz (Free) Web Service katmanıyla tam uyumlu olacak şe
    - **Build Command:** `pip install -r requirements.txt`
    - **Start Command:** `python app.py`
    - **Environment Variables (İsteğe Bağlı):** `PYTHON_VERSION` = `3.11.9` (ve LLM kullanmak isterseniz `HF_TOKEN`).
-4. **Deploy Web Service** butonuna tıklayın; Render size `https://steel-defect-inspector.onrender.com` şeklinde herkese açık canlı bir link verecektir.
+4. **Deploy Web Service** butonuna tıklayın; Render üzerinde canlı servis adresiniz: `https://steel-surface-defect-inspector.onrender.com`.
 
 ### Seçenek 2: Hugging Face Spaces'e Deploy Etme
 1. [Hugging Face Spaces](https://huggingface.co/spaces) üzerinde yeni bir Space oluşturun ve SDK olarak **Gradio** seçin.
