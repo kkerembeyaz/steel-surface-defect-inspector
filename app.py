@@ -25,6 +25,20 @@ DEFAULT_CONF = float(CFG.get("model", {}).get("default_conf_threshold", 0.25))
 
 DETECTOR = DefectDetector(config_path=CONFIG_PATH)
 
+
+def warmup_preset_examples() -> None:
+    """Pre-compute and cache detections for all 10 sample images at startup so switching is instant."""
+    examples_dir = Path("assets/examples")
+    if not examples_dir.exists():
+        return
+    for p in sorted(examples_dir.iterdir()):
+        if p.suffix.lower() in (".jpg", ".jpeg", ".bmp", ".png"):
+            try:
+                pil_img = Image.open(p).convert("RGB")
+                DETECTOR.predict(pil_img, conf_threshold=DEFAULT_CONF)
+            except Exception:
+                pass
+
 SAMPLE_DESCRIPTIONS: Dict[str, str] = {
     "01_vertical_scratch.jpg": "Senaryo 1 - Tekil Dikey Yüzey Çiziği (1x Scratches | İnceleme)",
     "02_multi_scratches.jpg": "Senaryo 2 - Çoklu Paralel Çizikler (3x Scratches | Red)",
@@ -565,8 +579,8 @@ def handle_example_click(
     image: Optional[Image.Image],
     conf_threshold: float,
     scenario_name: str = "",
-) -> Tuple[Optional[Image.Image], str, List[List[Any]], str, dict[str, Any], str, str]:
-    """Wrapper for gr.Examples click that updates inspection outputs, banner, and top dropdown."""
+) -> Tuple[Optional[Image.Image], str, List[List[Any]], str, dict[str, Any], str]:
+    """Wrapper for gr.Examples click that updates inspection outputs and banner in a single round-trip."""
     annotated_img, kpi_html, table_rows, report_md, payload = inspect_surface(
         image, conf_threshold
     )
@@ -578,7 +592,6 @@ def handle_example_click(
         report_md,
         payload,
         banner_html,
-        scenario_name,
     )
 
 
@@ -655,6 +668,7 @@ def build_interface() -> gr.Blocks:
 
                 input_image = gr.Image(
                     type="pil",
+                    format="jpeg",
                     label="Kendi Çelik Sac Görselinizi Yükleyin (veya Sürükleyip Bırakın)",
                     height=300,
                 )
@@ -672,6 +686,7 @@ def build_interface() -> gr.Blocks:
                 gr.HTML('<div class="section-header">2. Kusur Tespit Haritası (Bounding Box)</div>')
                 output_image = gr.Image(
                     type="pil",
+                    format="jpeg",
                     label="YOLOv11 Kusur Tespiti Çıktısı",
                     height=440,
                 )
@@ -731,7 +746,6 @@ def build_interface() -> gr.Blocks:
                         report_markdown,
                         raw_json,
                         scenario_banner,
-                        scenario_dropdown,
                     ],
                     fn=handle_example_click,
                     run_on_click=True,
@@ -790,7 +804,7 @@ def build_interface() -> gr.Blocks:
 
 
 if __name__ == "__main__":
+    warmup_preset_examples()
     app = build_interface()
     port = int(os.environ.get("PORT", 7860))
-    server_name = "0.0.0.0" if "RENDER" in os.environ or "PORT" in os.environ else "127.0.0.1"
-    app.launch(server_name=server_name, server_port=port)
+    app.launch(server_name="0.0.0.0", server_port=port, max_threads=2)

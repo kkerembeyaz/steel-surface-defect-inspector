@@ -5,6 +5,8 @@ runs object detection on an input PIL/numpy image, and returns an annotated RGB 
 with structured detection metadata for tabular display and LLM reporting.
 """
 
+import gc
+import hashlib
 import logging
 from collections import defaultdict
 from pathlib import Path
@@ -137,11 +139,17 @@ class DefectDetector:
         self.using_custom_weights: bool = primary_path.exists()
         self.resolved_weights: str = str(primary_path) if self.using_custom_weights else fallback_name
         self._model: Any = None
+        # In-memory cache mapping image SHA1 hash -> raw low-threshold detections list
+        self._raw_cache: Dict[str, List[Dict[str, Any]]] = {}
 
     def _get_model(self) -> Any:
-        """Lazy-load the Ultralytics YOLO model on first prediction."""
+        """Lazy-load the Ultralytics YOLO model on first prediction with low-memory CPU settings."""
         if self._model is None:
+            import torch
             from ultralytics import YOLO
+
+            # Restrict CPU thread pool to minimize RAM footprint on 512 MB cloud instances (Render Free)
+            torch.set_num_threads(1)
 
             if not self.using_custom_weights:
                 logger.warning(
@@ -150,6 +158,7 @@ class DefectDetector:
                     self.resolved_weights,
                 )
             self._model = YOLO(self.resolved_weights)
+            gc.collect()
         return self._model
 
     def predict(
@@ -170,47 +179,60 @@ class DefectDetector:
         conf = float(conf_threshold if conf_threshold is not None else self.default_conf)
         width, height = pil_img.size
 
-        model = self._get_model()
-        results = model.predict(
-            source=pil_img,
-            conf=conf,
-            iou=self.iou_threshold,
-            imgsz=self.image_size,
-            verbose=False,
-        )
+        # Compute fast hash of resized/raw image bytes so repeated views or slider changes are instantaneous
+        img_hash = hashlib.sha1(pil_img.tobytes()).hexdigest()
 
+        if img_hash not in self._raw_cache:
+            model = self._get_model()
+            results = model.predict(
+                source=pil_img,
+                conf=0.05,
+                iou=self.iou_threshold,
+                imgsz=self.image_size,
+                verbose=False,
+            )
+
+            raw_detections: List[Dict[str, Any]] = []
+            if results:
+                res = results[0]
+                names_map: Dict[int, str] = getattr(res, "names", {}) or {
+                    i: c for i, c in enumerate(CLASSES)
+                }
+                boxes = getattr(res, "boxes", None)
+                if boxes is not None and len(boxes) > 0:
+                    xyxy_arr = boxes.xyxy.cpu().numpy()
+                    conf_arr = boxes.conf.cpu().numpy()
+                    cls_arr = boxes.cls.cpu().numpy().astype(int)
+
+                    for xyxy, score, cls_id in zip(xyxy_arr, conf_arr, cls_arr):
+                        x1, y1, x2, y2 = [round(float(v), 1) for v in xyxy.tolist()]
+                        xc_norm = ((x1 + x2) / 2.0) / max(1, width)
+                        yc_norm = ((y1 + y2) / 2.0) / max(1, height)
+                        raw_cls_name = names_map.get(int(cls_id), f"class_{cls_id}")
+
+                        raw_detections.append(
+                            {
+                                "class_id": int(cls_id),
+                                "class_name": str(raw_cls_name),
+                                "confidence": round(float(score), 4),
+                                "bbox_xyxy": [x1, y1, x2, y2],
+                                "region": describe_region(xc_norm, yc_norm),
+                            }
+                        )
+            raw_detections.sort(key=lambda d: d["confidence"], reverse=True)
+            # Keep cache bounded to 64 images to protect RAM on 512MB instances
+            if len(self._raw_cache) >= 64:
+                self._raw_cache.clear()
+            self._raw_cache[img_hash] = raw_detections
+            gc.collect()
+
+        # Filter cached detections by requested confidence threshold in <1ms
         detections: List[Dict[str, Any]] = []
-        if results:
-            res = results[0]
-            names_map: Dict[int, str] = getattr(res, "names", {}) or {
-                i: c for i, c in enumerate(CLASSES)
-            }
-            boxes = getattr(res, "boxes", None)
-            if boxes is not None and len(boxes) > 0:
-                xyxy_arr = boxes.xyxy.cpu().numpy()
-                conf_arr = boxes.conf.cpu().numpy()
-                cls_arr = boxes.cls.cpu().numpy().astype(int)
-
-                for idx, (xyxy, score, cls_id) in enumerate(zip(xyxy_arr, conf_arr, cls_arr), start=1):
-                    x1, y1, x2, y2 = [round(float(v), 1) for v in xyxy.tolist()]
-                    xc_norm = ((x1 + x2) / 2.0) / max(1, width)
-                    yc_norm = ((y1 + y2) / 2.0) / max(1, height)
-                    raw_cls_name = names_map.get(int(cls_id), f"class_{cls_id}")
-
-                    detections.append(
-                        {
-                            "id": idx,
-                            "class_id": int(cls_id),
-                            "class_name": str(raw_cls_name),
-                            "confidence": round(float(score), 4),
-                            "bbox_xyxy": [x1, y1, x2, y2],
-                            "region": describe_region(xc_norm, yc_norm),
-                        }
-                    )
-
-        detections.sort(key=lambda d: d["confidence"], reverse=True)
-        for idx, det in enumerate(detections, start=1):
-            det["id"] = idx
+        for det in self._raw_cache[img_hash]:
+            if float(det["confidence"]) >= conf:
+                det_copy = dict(det)
+                det_copy["id"] = len(detections) + 1
+                detections.append(det_copy)
 
         annotated_img = draw_detections_pil(pil_img, detections)
         payload = build_structured_payload(
