@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# Disable Gradio background telemetry so startup never hangs on restricted networks
+# Disable Gradio background telemetry so startup never hangs
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 import gradio as gr
@@ -749,6 +749,7 @@ def build_interface() -> gr.Blocks:
                     ],
                     fn=handle_example_click,
                     run_on_click=True,
+                    cache_examples=False,
                     examples_per_page=10,
                     label="10 Farklı Kusur Senaryosu (Görsele veya Satıra Tıklayın)",
                 )
