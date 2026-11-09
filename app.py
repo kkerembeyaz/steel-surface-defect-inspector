@@ -10,8 +10,9 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# Disable Gradio background telemetry so startup never hangs
+# Disable Gradio background telemetry and SSR proxy so startup and responses are instant
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
+os.environ.setdefault("GRADIO_SSR_MODE", "False")
 
 import gradio as gr
 from PIL import Image
@@ -24,20 +25,6 @@ CFG = load_config(CONFIG_PATH)
 DEFAULT_CONF = float(CFG.get("model", {}).get("default_conf_threshold", 0.25))
 
 DETECTOR = DefectDetector(config_path=CONFIG_PATH)
-
-
-def warmup_preset_examples() -> None:
-    """Pre-compute and cache detections for all 10 sample images at startup so switching is instant."""
-    examples_dir = Path("assets/examples")
-    if not examples_dir.exists():
-        return
-    for p in sorted(examples_dir.iterdir()):
-        if p.suffix.lower() in (".jpg", ".jpeg", ".bmp", ".png"):
-            try:
-                pil_img = Image.open(p).convert("RGB")
-                DETECTOR.predict(pil_img, conf_threshold=DEFAULT_CONF)
-            except Exception:
-                pass
 
 SAMPLE_DESCRIPTIONS: Dict[str, str] = {
     "01_vertical_scratch.jpg": "Senaryo 1 - Tekil Dikey Yüzey Çiziği (1x Scratches | İnceleme)",
@@ -569,6 +556,7 @@ def load_preset_scenario(
         return None, None, empty_kpi, [], "Örnek görsel bulunamadı.", {}, banner_html
 
     pil_img = Image.open(target_path).convert("RGB")
+    pil_img.filename = str(target_path)  # type: ignore[attr-defined]
     annotated_img, kpi_html, table_rows, report_md, payload = inspect_surface(
         pil_img, conf_threshold
     )
@@ -805,7 +793,6 @@ def build_interface() -> gr.Blocks:
 
 
 if __name__ == "__main__":
-    warmup_preset_examples()
     app = build_interface()
     port = int(os.environ.get("PORT", 7860))
-    app.launch(server_name="0.0.0.0", server_port=port, max_threads=2)
+    app.launch(server_name="0.0.0.0", server_port=port, max_threads=4)
